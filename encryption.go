@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -74,9 +75,28 @@ func NewEncryption(protocol string) (*Encryption, error) {
 	return nil, fmt.Errorf("Encryption for protocol '%s' not supported", protocol)
 }
 
+// NewEncryptionWithDial is NewEncryption with a custom dialer for the session's connections.
+func NewEncryptionWithDial(protocol string, dial func(network, addr string) (net.Conn, error)) (*Encryption, error) {
+	encryption, err := NewEncryption(protocol)
+	if err != nil {
+		return nil, err
+	}
+	encryption.ntlm.dial = dial
+	return encryption, nil
+}
+
 func (e *Encryption) Transport(endpoint *Endpoint) error {
-	e.httpClient = &http.Client{}
-	return e.ntlm.Transport(endpoint)
+	if err := e.ntlm.Transport(endpoint); err != nil {
+		return err
+	}
+	// NTLM authenticates a TCP connection, so each session needs its own pool: a shared
+	// http.DefaultTransport hands one session's connections to another and the server rejects them.
+	session := &clientRequest{dial: e.ntlm.dial, proxyfunc: e.ntlm.proxyfunc}
+	if err := session.Transport(endpoint); err != nil {
+		return err
+	}
+	e.httpClient = &http.Client{Transport: session.transport}
+	return nil
 }
 
 func (e *Encryption) Post(client *Client, message *soap.SoapMessage) (string, error) {
