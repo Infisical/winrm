@@ -67,6 +67,8 @@ func (c *clientRequest) Transport(endpoint *Endpoint) error {
 		},
 		Dial:                  dial,
 		ResponseHeaderTimeout: endpoint.Timeout,
+		// Callers cap bytes on the connection, so a compressed body must not expand past that cap.
+		DisableCompression: true,
 	}
 
 	if endpoint.CACert != nil && len(endpoint.CACert) > 0 {
