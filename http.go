@@ -15,11 +15,22 @@ import (
 
 var soapXML = "application/soap+xml"
 
+// MaxResponseBytes caps how much of one response body is read into memory.
+var MaxResponseBytes int64 = 32 << 20
+
+func readLimited(r io.Reader) ([]byte, error) {
+	b, err := io.ReadAll(io.LimitReader(r, MaxResponseBytes+1))
+	if err == nil && int64(len(b)) > MaxResponseBytes {
+		return nil, fmt.Errorf("winrm response exceeded %d bytes", MaxResponseBytes)
+	}
+	return b, err
+}
+
 // body func reads the response body and return it as a string
 func body(response *http.Response) (string, error) {
 	// if we received the content we expected
 	if strings.Contains(response.Header.Get("Content-Type"), "application/soap+xml") {
-		body, err := io.ReadAll(response.Body)
+		body, err := readLimited(response.Body)
 		defer func() {
 			// defer can modify the returned value before
 			// it is actually passed to the calling statement

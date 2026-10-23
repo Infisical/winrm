@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"net"
+	"strings"
 	"time"
 
 	. "gopkg.in/check.v1"
@@ -81,4 +82,16 @@ func (s *WinRMSuite) TestHttpViaCustomDialerRequest(c *C) {
 	_, err = client.CreateShell()
 	c.Assert(err, IsNil)
 	c.Assert(usedCustomDialer, Equals, true)
+}
+
+func (s *WinRMSuite) TestReadLimitedRejectsOversizedBody(c *C) {
+	defer func(old int64) { MaxResponseBytes = old }(MaxResponseBytes)
+	MaxResponseBytes = 8
+
+	b, err := readLimited(strings.NewReader("12345678"))
+	c.Assert(err, IsNil)
+	c.Assert(string(b), Equals, "12345678")
+
+	_, err = readLimited(strings.NewReader("123456789"))
+	c.Assert(err, ErrorMatches, "winrm response exceeded 8 bytes")
 }

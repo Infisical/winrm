@@ -3,7 +3,6 @@ package winrm
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -64,7 +63,7 @@ func (c *ClientAuthRequest) Transport(endpoint *Endpoint) error {
 func parse(response *http.Response) (string, error) {
 	// if we received the content we expected
 	if strings.Contains(response.Header.Get("Content-Type"), "application/soap+xml") {
-		body, err := io.ReadAll(response.Body)
+		body, err := readLimited(response.Body)
 		defer func() {
 			// defer can modify the returned value before
 			// it is actually passed to the calling statement

@@ -2,7 +2,6 @@ package winrm
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -111,7 +110,7 @@ func (c *ClientKerberos) Post(clt *Client, request *soap.SoapMessage) (string, e
 
 	if resp.StatusCode != 200 {
 		var bodyMsg string
-		respBody, err := io.ReadAll(resp.Body)
+		respBody, err := readLimited(resp.Body)
 		if err != nil {
 			bodyMsg = fmt.Sprintf("Error retrieving the response's body: %s", err)
 		} else {
@@ -120,7 +119,7 @@ func (c *ClientKerberos) Post(clt *Client, request *soap.SoapMessage) (string, e
 		return "", fmt.Errorf("request returned: %d - %s. %s", resp.StatusCode, resp.Status, bodyMsg)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := readLimited(resp.Body)
 	if err != nil {
 		return "", err
 	}

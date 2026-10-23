@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -140,7 +139,7 @@ func (e *Encryption) PrepareRequest(client *Client, endpoint string) error {
 		return fmt.Errorf("unknown error %w", err)
 	}
 
-	if _, err := io.ReadAll(resp.Body); err != nil {
+	if _, err := readLimited(resp.Body); err != nil {
 		return fmt.Errorf("read response body: %w", err)
 	}
 
@@ -223,7 +222,7 @@ func (e *Encryption) ParseEncryptedResponse(response *http.Response) ([]byte, er
 	if strings.Contains(contentType, fmt.Sprintf(`protocol="%s"`, e.protocolString)) {
 		return e.decryptResponse(response, response.Request.URL.Hostname())
 	}
-	body, err := io.ReadAll(response.Body)
+	body, err := readLimited(response.Body)
 	response.Body.Close()
 	if err != nil {
 		return nil, err
@@ -263,7 +262,10 @@ func deleteEmpty(b [][]byte) [][]byte {
 // on call to textproto.ReadMIMEHeader
 // because of "The first line cannot start with a leading space."
 func (e *Encryption) decryptResponse(response *http.Response, host string) ([]byte, error) {
-	body, _ := io.ReadAll(response.Body)
+	body, err := readLimited(response.Body)
+	if err != nil {
+		return nil, err
+	}
 	parts := deleteEmpty(bytes.Split(body, []byte(fmt.Sprintf("%s\r\n", mimeBoundary))))
 	var message []byte
 
